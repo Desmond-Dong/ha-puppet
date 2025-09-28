@@ -411,7 +411,7 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance.threshold(240, {
+        sharpInstance = sharpInstance.threshold(220, {
           greyscale: true,
         });
         if (invert) {
@@ -467,27 +467,13 @@ await page.addStyleTag({
       } else if (format === "webp") {
         sharpInstance = sharpInstance.webp();
         image = await sharpInstance.toBuffer();
-      } else if (format === "bmp") {
-        const { data, info } = await sharpInstance.raw().toBuffer({ resolveWithObject: true });
-    
-        let rgbData;
-        if (info.channels === 4) {
-            // RGBA -> RGB
-            rgbData = Buffer.alloc(info.width * info.height * 3);
-            for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
-                rgbData[j] = data[i];       // R
-                rgbData[j + 1] = data[i+1]; // G
-                rgbData[j + 2] = data[i+2]; // B
-                // 忽略 alpha
-            }
-        } else if (info.channels === 3) {
-            rgbData = data;
-        } else {
-            throw new Error("Unsupported number of channels: " + info.channels);
-        }
+        sharpInstance = sharpInstance.raw();
+        const { data, info } = await sharpInstance.toBuffer({
+          resolveWithObject: true,
+        });
     
         const bmpEncoder = new BMPEncoder(info.width, info.height, 24);
-        image = bmpEncoder.encode(rgbData);
+        image = bmpEncoder.encode(data);
       } else {
         sharpInstance = sharpInstance.png();
         image = await sharpInstance.toBuffer();

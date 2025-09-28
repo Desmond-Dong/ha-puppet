@@ -33,7 +33,7 @@ export class BMPEncoder {
     header.writeUInt32LE(headerSize, 10);
     header.writeUInt32LE(40, 14);
     header.writeInt32LE(this.width, 18);
-    header.writeInt32LE(-this.height, 22); // Negative height for top-down DIB
+    header.writeInt32LE(this.height, 22); // Negative height for top-down DIB
     header.writeUInt16LE(1, 26); // Number of color planes
     header.writeUInt16LE(this.bitsPerPixel, 28); // Bits per pixel
     header.writeUInt32LE(0, 30); // Compression (none)
@@ -59,7 +59,7 @@ export class BMPEncoder {
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
           const pixel = imageData[y * this.width + x];
-          const byteIndex = (y * this.paddedWidthBytes + Math.floor(x / 8));
+          const byteIndex = ((this.height - 1 - y) * this.paddedWidthBytes + Math.floor(x / 8));
           const bitIndex = x % 8;
           const currentByte = pixelData.readUInt8(byteIndex);
           if (pixel == 0xFF) {
@@ -73,21 +73,21 @@ export class BMPEncoder {
           pixelData.writeUInt8(0, offset++);
         }
       }
-} else if (this.bitsPerPixel === 24) {
-  for (let y = 0; y < this.height; y++) { // 如果 header 高度为负数（top-down）
-    for (let x = 0; x < this.width; x++) {
-      const sourceIndex = (y * this.width * 3) + (x * 3);
-      const r = imageData[sourceIndex];
-      const g = imageData[sourceIndex + 1];
-      const b = imageData[sourceIndex + 2];
-      pixelData.writeUInt8(b, offset++);
-      pixelData.writeUInt8(g, offset++);
-      pixelData.writeUInt8(r, offset++);
-    }
-    for (let p = 0; p < this.padding; p++) {
-      pixelData.writeUInt8(0, offset++);
-    }
-  }
+    } else if (this.bitsPerPixel === 24) {
+      for (let y = this.height - 1; y >= 0; y--) {
+        for (let x = 0; x < this.width; x++) {
+          const sourceIndex = (y * this.paddedWidthBytes) + (x * 3);
+          const r = imageData[sourceIndex];
+          const g = imageData[sourceIndex + 1];
+          const b = imageData[sourceIndex + 2];
+          pixelData.writeUInt8(b, offset++);
+          pixelData.writeUInt8(g, offset++);
+          pixelData.writeUInt8(r, offset++);
+        }
+        for (let p = 0; p < this.padding; p++) {
+          pixelData.writeUInt8(0, offset++);
+        }
+      }
 }
 
 
