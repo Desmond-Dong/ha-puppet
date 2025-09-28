@@ -411,9 +411,18 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance.threshold(220, {
-          greyscale: true,
-        });
+        sharpInstance = sharpInstance
+          .greyscale()
+          // 应用轻微模糊来减少锯齿
+          .blur(0.5)
+          // 增加对比度以确保文字清晰
+          .contrast(1.1)
+          // 应用更智能的阈值化处理
+          .threshold(180, {
+            greyscale: true,
+            grayscale: true  // 支持两种拼写
+          });
+
         if (invert) {
           sharpInstance = sharpInstance.negate({
             alpha: false,
