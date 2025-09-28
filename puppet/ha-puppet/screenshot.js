@@ -411,18 +411,9 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance
-          .greyscale()
-          // 应用轻微模糊来减少锯齿
-          .blur(0.5)
-          // 增加对比度以确保文字清晰
-          .contrast(1.1)
-          // 应用更智能的阈值化处理
-          .threshold(180, {
-            greyscale: true,
-            grayscale: true  // 支持两种拼写
-          });
-
+        sharpInstance = sharpInstance.threshold(200, {
+          greyscale: true,
+        });
         if (invert) {
           sharpInstance = sharpInstance.negate({
             alpha: false,
@@ -476,27 +467,14 @@ await page.addStyleTag({
         sharpInstance = sharpInstance.webp();
         image = await sharpInstance.toBuffer();
       } else if (format === "bmp") {
-        sharpInstance = sharpInstance
-          .gamma(1.0)  // 确保没有额外的 gamma 校正
-          .normalize() // 优化对比度
-          .raw();
+        sharpInstance = sharpInstance.raw();
         const { data, info } = await sharpInstance.toBuffer({
           resolveWithObject: true,
         });
         const bmpEncoder = new BMPEncoder(info.width, info.height, 24);
         image = bmpEncoder.encode(data);
       } else {
-        sharpInstance = sharpInstance
-          .png({
-            quality: 100,
-            chromaSubsampling: '4:4:4'
-          })
-          .sharpen({
-            sigma: 1,
-            m1: 0,
-            m2: 3
-          })
-          .gamma(1.1);
+        sharpInstance = sharpInstance.png();
         image = await sharpInstance.toBuffer();
       }
 
