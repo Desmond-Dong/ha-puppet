@@ -354,13 +354,13 @@ export class Browser {
         this.lastRequestedDarkMode = dark;
         defaultWait += 500;
       }
-      await page.addStyleTag({
-        content: `
+await page.addStyleTag({
+  content: `
     * {
       font-family: "Noto Sans CJK", "Noto Sans", sans-serif !important;
     }
   `
-      });
+});
       // wait for the work to be done.
       // Not sure yet how to decide that?
       if (extraWait === undefined) {
@@ -412,22 +412,12 @@ export class Browser {
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
         // 先转灰度再dither二值化，避免糊
-        // 为了提升精细度和灰阶保留，先超采样再二值化再缩回原尺寸
-        const oversample = 2; // 超采样倍数
-        const { width, height } = await sharpInstance.metadata();
         sharpInstance = sharpInstance
           .greyscale()
-          .resize(width * oversample, height * oversample, {
-            kernel: sharp.kernel.lanczos3,
-          })
           .png(); // 保持高质量
-        // 使用Floyd-Steinberg dithering，dithering参数略低于1以保留更多灰阶
+        // 使用Floyd-Steinberg dithering
         sharpInstance = sharpInstance.threshold(128, {
-          dithering: 0.8, // 启用dithering，略低于1以保留更多灰阶
-        });
-        // 缩回原尺寸
-        sharpInstance = sharpInstance.resize(width, height, {
-          kernel: sharp.kernel.lanczos3,
+          dithering: 1, // 启用dithering
         });
         if (invert) {
           sharpInstance = sharpInstance.negate({
@@ -482,16 +472,28 @@ export class Browser {
         sharpInstance = sharpInstance.webp();
         image = await sharpInstance.toBuffer();
       } else if (format === "bmp") {
-        sharpInstance = sharpInstance.raw();
-        const { data, info } = await sharpInstance.toBuffer({
-          resolveWithObject: true,
-        });
+        const { data, info } = await sharpInstance.raw().toBuffer({ resolveWithObject: true });
+    
+        let rgbData;
+        if (info.channels === 4) {
+            // RGBA -> RGB
+            rgbData = Buffer.alloc(info.width * info.height * 3);
+            for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
+                rgbData[j] = data[i];       // R
+                rgbData[j + 1] = data[i+1]; // G
+                rgbData[j + 2] = data[i+2]; // B
+                // 忽略 alpha
+            }
+        } else if (info.channels === 3) {
+            rgbData = data;
+        } else {
+            throw new Error("Unsupported number of channels: " + info.channels);
+        }
+    
         const bmpEncoder = new BMPEncoder(info.width, info.height, 24);
-        image = bmpEncoder.encode(data);
-      } else {
-        sharpInstance = sharpInstance.png();
-        image = await sharpInstance.toBuffer();
-      }
+        image = bmpEncoder.encode(rgbData);
+    }
+    
 
       const end = Date.now();
       return {

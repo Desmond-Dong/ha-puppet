@@ -5,55 +5,51 @@ export class BMPEncoder {
     this.width = width;
     this.height = height;
     this.bitsPerPixel = bitsPerPixel;
-
     if (!supportedBitsPerPixel.includes(bitsPerPixel)) {
       throw new Error(`Unsupported bits per pixel. Supported values are: ${supportedBitsPerPixel.join(", ")}`);
     }
 
-    // 每行字节数必须 4 字节对齐
-    let rowBytes = Math.ceil((this.width * this.bitsPerPixel) / 8);
-    this.padding = (4 - (rowBytes % 4)) % 4;
-    this.paddedWidthBytes = rowBytes + this.padding;
-  }
+    let padding = (this.width * (this.bitsPerPixel / 8)) % 4;
+    if (padding > 0) {
+      padding = 4 - padding;
+    }
+    this.padding = padding;
+    this.paddedWidthBytes = Math.ceil(this.width * (this.bitsPerPixel / 8)) + padding;
+  };
 
   encode(data) {
     const header = this.createHeader();
     const pixelData = this.createPixelData(data);
     return Buffer.concat([header, pixelData]);
-  }
+  };
 
   createHeader() {
     const headerSize = this.bitsPerPixel === 1 ? 62 : 54;
     const fileSize = headerSize + this.height * this.paddedWidthBytes;
     const header = Buffer.alloc(headerSize);
-
-    // BMP 文件头
     header.write("BM", 0, 2, "ascii");
-    header.writeUInt32LE(fileSize, 2);     // 文件大小
-    header.writeUInt32LE(0, 6);            // 保留
-    header.writeUInt32LE(headerSize, 10);  // 数据偏移
-
-    // DIB header (BITMAPINFOHEADER)
-    header.writeUInt32LE(40, 14);          // DIB header size
-    header.writeInt32LE(this.width, 18);   
-    header.writeInt32LE(-this.height, 22); // top-down
-    header.writeUInt16LE(1, 26);           // color planes
-    header.writeUInt16LE(this.bitsPerPixel, 28); // bits per pixel
-    header.writeUInt32LE(0, 30);           // no compression
-    header.writeUInt32LE(this.width * this.height * (this.bitsPerPixel / 8), 34); // image size
-    header.writeInt32LE(0, 38);            // horz resolution
-    header.writeInt32LE(0, 42);            // vert resolution
-    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 46); // colors in palette
-    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 50); // important colors
-
-    // 1-bit palette
+    header.writeUInt32LE(fileSize, 2);
+    header.writeUInt32LE(0, 6);
+    header.writeUInt32LE(headerSize, 10);
+    header.writeUInt32LE(40, 14);
+    header.writeInt32LE(this.width, 18);
+    header.writeInt32LE(this.height, 22); // Negative height for top-down DIB
+    header.writeUInt16LE(1, 26); // Number of color planes
+    header.writeUInt16LE(this.bitsPerPixel, 28); // Bits per pixel
+    header.writeUInt32LE(0, 30); // Compression (none)
+    header.writeUInt32LE(this.width * this.height * (this.bitsPerPixel / 8), 34); // Image size
+    header.writeInt32LE(0, 38); // Horizontal resolution (pixels per meter)
+    header.writeInt32LE(0, 42); // Vertical resolution (pixels per meter)
+    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 46); // Number of colors in color palette
+    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 50); // Important colors
     if (this.bitsPerPixel === 1) {
-      header.writeUInt32LE(0x00000000, 54); // black
-      header.writeUInt32LE(0x00FFFFFF, 58); // white
+      header.writeUInt32LE(0x00000000, 54); // Color palette 0 - black
+      header.writeUInt32LE(0x00FFFFFF, 58); // Color palette 1 - white
     }
-
     return header;
-  }
+  };
+
+  // Handles bitsPerPixel 1, 24
 
   createPixelData(imageData) {
     let offset = 0;
@@ -63,36 +59,37 @@ export class BMPEncoder {
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
           const pixel = imageData[y * this.width + x];
-          const byteIndex = y * this.paddedWidthBytes + Math.floor(x / 8);
+          const byteIndex = ((this.height - 1 - y) * this.paddedWidthBytes + Math.floor(x / 8));
           const bitIndex = x % 8;
-          let currentByte = pixelData.readUInt8(byteIndex);
-          if (pixel === 0xFF) {
-            currentByte |= (1 << (7 - bitIndex));
+          const currentByte = pixelData.readUInt8(byteIndex);
+          if (pixel == 0xFF) {
+            pixelData.writeUInt8(currentByte | (1 << (7 - bitIndex)), byteIndex);
           } else {
-            currentByte &= ~(1 << (7 - bitIndex));
+            pixelData.writeUInt8(currentByte & ~(1 << (7 - bitIndex)), byteIndex);
           }
-          pixelData.writeUInt8(currentByte, byteIndex);
         }
-      }
-    } else if (this.bitsPerPixel === 24) {
-      // imageData 必须是 RGB 连续三通道
-      let rowStart = 0;
-      for (let y = 0; y < this.height; y++) {
-        for (let x = 0; x < this.width; x++) {
-          const idx = (y * this.width + x) * 3;
-          const r = imageData[idx];
-          const g = imageData[idx + 1];
-          const b = imageData[idx + 2];
-          pixelData[offset++] = b;
-          pixelData[offset++] = g;
-          pixelData[offset++] = r;
-        }
-        // padding
+        offset += Math.ceil(this.width / 8);
         for (let p = 0; p < this.padding; p++) {
-          pixelData[offset++] = 0;
+          pixelData.writeUInt8(0, offset++);
         }
       }
+} else if (this.bitsPerPixel === 24) {
+  for (let y = 0; y < this.height; y++) { // 如果 header 高度为负数（top-down）
+    for (let x = 0; x < this.width; x++) {
+      const sourceIndex = (y * this.width * 3) + (x * 3);
+      const r = imageData[sourceIndex];
+      const g = imageData[sourceIndex + 1];
+      const b = imageData[sourceIndex + 2];
+      pixelData.writeUInt8(b, offset++);
+      pixelData.writeUInt8(g, offset++);
+      pixelData.writeUInt8(r, offset++);
     }
+    for (let p = 0; p < this.padding; p++) {
+      pixelData.writeUInt8(0, offset++);
+    }
+  }
+}
+
 
     return pixelData;
   }
