@@ -33,7 +33,7 @@ export class BMPEncoder {
     header.writeUInt32LE(headerSize, 10);
     header.writeUInt32LE(40, 14);
     header.writeInt32LE(this.width, 18);
-    header.writeInt32LE(this.height, 22); // Negative height for top-down DIB
+    header.writeInt32LE(-this.height, 22); // Negative height for top-down DIB
     header.writeUInt16LE(1, 26); // Number of color planes
     header.writeUInt16LE(this.bitsPerPixel, 28); // Bits per pixel
     header.writeUInt32LE(0, 30); // Compression (none)
