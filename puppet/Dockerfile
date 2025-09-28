@@ -17,11 +17,12 @@
 FROM debian:bullseye-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
+ENV TZ=Asia/Shanghai
 
 RUN apt-get update && apt-get install -y \
     chromium \
     curl \
+    fonts-noto-cjk \
     && curl -fsSL https://deb.nodesource.com/setup_23.x -o nodesource_setup.sh \
     && bash nodesource_setup.sh \
     && apt-get install -y nodejs \
