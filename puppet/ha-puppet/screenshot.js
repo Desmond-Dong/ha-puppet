@@ -411,7 +411,7 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance.threshold(220, {
+        sharpInstance = sharpInstance.threshold(200, {
           greyscale: true,
         });
         if (invert) {
