@@ -5,12 +5,13 @@ export class BMPEncoder {
     this.width = width;
     this.height = height;
     this.bitsPerPixel = bitsPerPixel;
+
     if (!supportedBitsPerPixel.includes(bitsPerPixel)) {
       throw new Error(`Unsupported bits per pixel. Supported values are: ${supportedBitsPerPixel.join(", ")}`);
     }
 
-    // Each row in BMP must be padded to a multiple of 4 bytes
-    const rowBytes = Math.ceil((this.width * this.bitsPerPixel) / 8);
+    // 每行字节数必须 4 字节对齐
+    let rowBytes = Math.ceil((this.width * this.bitsPerPixel) / 8);
     this.padding = (4 - (rowBytes % 4)) % 4;
     this.paddedWidthBytes = rowBytes + this.padding;
   }
@@ -25,77 +26,70 @@ export class BMPEncoder {
     const headerSize = this.bitsPerPixel === 1 ? 62 : 54;
     const fileSize = headerSize + this.height * this.paddedWidthBytes;
     const header = Buffer.alloc(headerSize);
+
+    // BMP 文件头
     header.write("BM", 0, 2, "ascii");
-    header.writeUInt32LE(fileSize, 2);
-    header.writeUInt32LE(0, 6);
-    header.writeUInt32LE(headerSize, 10);
-    header.writeUInt32LE(40, 14);
-    header.writeInt32LE(this.width, 18);
-    header.writeInt32LE(this.height, 22); // Positive height for bottom-up DIB
-    header.writeUInt16LE(1, 26); // Number of color planes
-    header.writeUInt16LE(this.bitsPerPixel, 28); // Bits per pixel
-    header.writeUInt32LE(0, 30); // Compression (none)
-    header.writeUInt32LE(this.height * this.paddedWidthBytes, 34); // Image size
-    header.writeInt32LE(0, 38); // Horizontal resolution (pixels per meter)
-    header.writeInt32LE(0, 42); // Vertical resolution (pixels per meter)
-    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 46); // Number of colors in color palette
-    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 50); // Important colors
+    header.writeUInt32LE(fileSize, 2);     // 文件大小
+    header.writeUInt32LE(0, 6);            // 保留
+    header.writeUInt32LE(headerSize, 10);  // 数据偏移
+
+    // DIB header (BITMAPINFOHEADER)
+    header.writeUInt32LE(40, 14);          // DIB header size
+    header.writeInt32LE(this.width, 18);   
+    header.writeInt32LE(-this.height, 22); // top-down
+    header.writeUInt16LE(1, 26);           // color planes
+    header.writeUInt16LE(this.bitsPerPixel, 28); // bits per pixel
+    header.writeUInt32LE(0, 30);           // no compression
+    header.writeUInt32LE(this.width * this.height * (this.bitsPerPixel / 8), 34); // image size
+    header.writeInt32LE(0, 38);            // horz resolution
+    header.writeInt32LE(0, 42);            // vert resolution
+    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 46); // colors in palette
+    header.writeUInt32LE(this.bitsPerPixel === 1 ? 2 : 0, 50); // important colors
+
+    // 1-bit palette
     if (this.bitsPerPixel === 1) {
-      header.writeUInt32LE(0x00000000, 54); // Color palette 0 - black
-      header.writeUInt32LE(0x00FFFFFF, 58); // Color palette 1 - white
+      header.writeUInt32LE(0x00000000, 54); // black
+      header.writeUInt32LE(0x00FFFFFF, 58); // white
     }
+
     return header;
   }
 
-  // Handles bitsPerPixel 1, 24
-
   createPixelData(imageData) {
+    let offset = 0;
     const pixelData = Buffer.alloc(this.height * this.paddedWidthBytes);
 
     if (this.bitsPerPixel === 1) {
-      // 1bpp: imageData is expected to be a flat array of 0x00 (black) or 0xFF (white)
       for (let y = 0; y < this.height; y++) {
-        let rowOffset = (this.height - 1 - y) * this.paddedWidthBytes;
-        let byte = 0;
-        let bitCount = 0;
         for (let x = 0; x < this.width; x++) {
           const pixel = imageData[y * this.width + x];
-          byte <<= 1;
+          const byteIndex = y * this.paddedWidthBytes + Math.floor(x / 8);
+          const bitIndex = x % 8;
+          let currentByte = pixelData.readUInt8(byteIndex);
           if (pixel === 0xFF) {
-            byte |= 1;
+            currentByte |= (1 << (7 - bitIndex));
+          } else {
+            currentByte &= ~(1 << (7 - bitIndex));
           }
-          bitCount++;
-          if (bitCount === 8 || x === this.width - 1) {
-            // Shift remaining bits if last byte is not full
-            if (bitCount < 8) {
-              byte <<= (8 - bitCount);
-            }
-            pixelData.writeUInt8(byte, rowOffset++);
-            byte = 0;
-            bitCount = 0;
-          }
-        }
-        // Padding
-        for (let p = 0; p < this.padding; p++) {
-          pixelData.writeUInt8(0, rowOffset++);
+          pixelData.writeUInt8(currentByte, byteIndex);
         }
       }
     } else if (this.bitsPerPixel === 24) {
-      // 24bpp: imageData is expected to be a flat array of RGB triplets (row-major, top-down)
+      // imageData 必须是 RGB 连续三通道
+      let rowStart = 0;
       for (let y = 0; y < this.height; y++) {
-        let rowOffset = (this.height - 1 - y) * this.paddedWidthBytes;
         for (let x = 0; x < this.width; x++) {
           const idx = (y * this.width + x) * 3;
           const r = imageData[idx];
           const g = imageData[idx + 1];
           const b = imageData[idx + 2];
-          pixelData.writeUInt8(b, rowOffset++);
-          pixelData.writeUInt8(g, rowOffset++);
-          pixelData.writeUInt8(r, rowOffset++);
+          pixelData[offset++] = b;
+          pixelData[offset++] = g;
+          pixelData[offset++] = r;
         }
-        // Padding
+        // padding
         for (let p = 0; p < this.padding; p++) {
-          pixelData.writeUInt8(0, rowOffset++);
+          pixelData[offset++] = 0;
         }
       }
     }
