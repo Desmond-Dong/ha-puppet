@@ -354,13 +354,28 @@ export class Browser {
         this.lastRequestedDarkMode = dark;
         defaultWait += 500;
       }
-await page.addStyleTag({
-  content: `
-    * {
-      font-family: "Noto Sans CJK", "Noto Sans", sans-serif !important;
-    }
-  `
-});
+      // 强制字体为黑色，防止字体变透明或消失
+      await page.addStyleTag({
+        content: `
+          * {
+            font-family: "Noto Sans CJK", "Noto Sans", sans-serif !important;
+            color: #000 !important;
+            text-shadow: none !important;
+            -webkit-text-stroke: 0 !important;
+            opacity: 1 !important;
+            filter: none !important;
+            background: transparent !important;
+            mix-blend-mode: normal !important;
+          }
+          [style*="color:"], [style*="opacity:"], [style*="filter:"], [style*="background:"], [style*="mix-blend-mode:"] {
+            color: #000 !important;
+            opacity: 1 !important;
+            filter: none !important;
+            background: transparent !important;
+            mix-blend-mode: normal !important;
+          }
+        `
+      });
       // wait for the work to be done.
       // Not sure yet how to decide that?
       if (extraWait === undefined) {
@@ -414,7 +429,7 @@ await page.addStyleTag({
         // 先灰度，后高斯模糊，再二值化，最后可选反色
         sharpInstance = sharpInstance
           .greyscale()
-          .blur(0.7) // 适度模糊，减少锯齿
+          // .blur(0.7) // 适度模糊，减少锯齿（注释掉，防止字变糊）
           .threshold(180); // 阈值可根据实际调整
         if (invert) {
           sharpInstance = sharpInstance.negate({
