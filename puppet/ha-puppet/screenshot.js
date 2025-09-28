@@ -115,7 +115,7 @@ export class Browser {
     try {
       console.log("Starting browser");
       browser = await puppeteer.launch({
-        headless: "shell",
+        headless: "new",
         executablePath: chromiumExecutable,
         args: puppeteerArgs,
       });
