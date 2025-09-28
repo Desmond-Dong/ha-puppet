@@ -467,14 +467,27 @@ await page.addStyleTag({
         sharpInstance = sharpInstance.webp();
         image = await sharpInstance.toBuffer();
       } else if (format === "bmp") {
-        sharpInstance = sharpInstance.raw();
+        sharpInstance = sharpInstance
+          .gamma(1.0)  // 确保没有额外的 gamma 校正
+          .normalize() // 优化对比度
+          .raw();
         const { data, info } = await sharpInstance.toBuffer({
           resolveWithObject: true,
         });
         const bmpEncoder = new BMPEncoder(info.width, info.height, 24);
         image = bmpEncoder.encode(data);
       } else {
-        sharpInstance = sharpInstance.png();
+        sharpInstance = sharpInstance
+          .png({
+            quality: 100,
+            chromaSubsampling: '4:4:4'
+          })
+          .sharpen({
+            sigma: 1,
+            m1: 0,
+            m2: 3
+          })
+          .gamma(1.1);
         image = await sharpInstance.toBuffer();
       }
 
