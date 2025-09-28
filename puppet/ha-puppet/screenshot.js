@@ -47,7 +47,7 @@ const puppeteerArgs = [
   "--no-sandbox",
   "--no-zygote",
   "--password-store=basic",
-  "--use-gl=swiftshader",
+//  "--use-gl=swiftshader",
   "--use-mock-keychain",
 ];
 if (isAddOn) {
