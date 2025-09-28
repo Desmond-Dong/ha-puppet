@@ -59,7 +59,7 @@ export class BMPEncoder {
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
           const pixel = imageData[y * this.width + x];
-          const byteIndex = ((this.height - 1 - y) * this.paddedWidthBytes + Math.floor(x / 8));
+          const byteIndex = (y * this.paddedWidthBytes + Math.floor(x / 8));
           const bitIndex = x % 8;
           const currentByte = pixelData.readUInt8(byteIndex);
           if (pixel == 0xFF) {
