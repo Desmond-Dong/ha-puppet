@@ -411,7 +411,7 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance.threshold(180, {
+        sharpInstance = sharpInstance.threshold(240, {
           greyscale: true,
         });
         if (invert) {
@@ -454,7 +454,9 @@ await page.addStyleTag({
           image = await sharpInstance.toBuffer();
         } else {
           // 不指定colours，避免sharp降采样导致糊
-          sharpInstance = sharpInstance.png();
+          sharpInstance = sharpInstance.png({
+            colours: einkColors,
+          });
           image = await sharpInstance.toBuffer();
         }
       }
