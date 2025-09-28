@@ -467,6 +467,7 @@ await page.addStyleTag({
       } else if (format === "webp") {
         sharpInstance = sharpInstance.webp();
         image = await sharpInstance.toBuffer();
+      } else if (format === "bmp") {
         sharpInstance = sharpInstance.raw();
         const { data, info } = await sharpInstance.toBuffer({
           resolveWithObject: true,
