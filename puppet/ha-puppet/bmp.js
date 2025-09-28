@@ -73,22 +73,22 @@ export class BMPEncoder {
           pixelData.writeUInt8(0, offset++);
         }
       }
-} else if (this.bitsPerPixel === 24) {
-  for (let y = 0; y < this.height; y++) { // 如果 header 高度为负数（top-down）
-    for (let x = 0; x < this.width; x++) {
-      const sourceIndex = (y * this.width * 3) + (x * 3);
-      const r = imageData[sourceIndex];
-      const g = imageData[sourceIndex + 1];
-      const b = imageData[sourceIndex + 2];
-      pixelData.writeUInt8(b, offset++);
-      pixelData.writeUInt8(g, offset++);
-      pixelData.writeUInt8(r, offset++);
+    } else if (this.bitsPerPixel === 24) {
+      for (let y = this.height - 1; y >= 0; y--) {
+        for (let x = 0; x < this.width; x++) {
+          const sourceIndex = (y * this.paddedWidthBytes) + (x * 3);
+          const r = imageData[sourceIndex];
+          const g = imageData[sourceIndex + 1];
+          const b = imageData[sourceIndex + 2];
+          pixelData.writeUInt8(b, offset++);
+          pixelData.writeUInt8(g, offset++);
+          pixelData.writeUInt8(r, offset++);
+        }
+        for (let p = 0; p < this.padding; p++) {
+          pixelData.writeUInt8(0, offset++);
+        }
+      }
     }
-    for (let p = 0; p < this.padding; p++) {
-      pixelData.writeUInt8(0, offset++);
-    }
-  }
-}
 
 
     return pixelData;
