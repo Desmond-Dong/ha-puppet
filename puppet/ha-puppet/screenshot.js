@@ -190,17 +190,13 @@ export class Browser {
       viewport.height += headerHeight;
 
       const curViewport = page.viewport();
-      const scaleFactor = 2;
 
       if (
         !curViewport ||
         curViewport.width !== viewport.width ||
         curViewport.height !== viewport.height
       ) {
-          await page.setViewport({
-    ...viewport,
-    deviceScaleFactor: scaleFactor, // 核心：增加渲染像素
-  });
+      await page.setViewport(viewport);
       }
 
       let defaultWait = isAddOn ? 750 : 500;
