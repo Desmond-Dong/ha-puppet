@@ -357,7 +357,14 @@ export class Browser {
 await page.addStyleTag({
   content: `
     * {
-      font-family: "Noto Sans CJK", "Noto Sans", sans-serif !important;
+      font-family: "Noto Sans CJK SC", "Noto Sans SC", "Noto Sans CJK", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+      -webkit-font-smoothing: antialiased !important;
+      text-rendering: optimizeLegibility !important;
+      font-weight: 500 !important;
+    }
+    :lang(zh), :lang(zh-CN) {
+      font-family: "Noto Sans CJK SC", "Noto Sans SC", "Noto Sans CJK" !important;
+      font-weight: 500 !important;
     }
   `
 });
@@ -411,7 +418,7 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance.threshold(180, {
+        sharpInstance = sharpInstance.threshold(200, {
           greyscale: true,
         });
         if (invert) {
