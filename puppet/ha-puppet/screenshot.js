@@ -411,9 +411,11 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        sharpInstance = sharpInstance.threshold(220, {
-          greyscale: true,
-        });
+        // 先灰度，后高斯模糊，再二值化，最后可选反色
+        sharpInstance = sharpInstance
+          .greyscale()
+          .blur(0.7) // 适度模糊，减少锯齿
+          .threshold(180); // 阈值可根据实际调整
         if (invert) {
           sharpInstance = sharpInstance.negate({
             alpha: false,
@@ -424,7 +426,7 @@ await page.addStyleTag({
       // If eink processing was requested, output PNG with specified colors
       if (einkColors) {
         if (einkColors === 2) {
-          sharpInstance = sharpInstance.toColourspace("b-w");
+          // 不再 toColourspace("b-w")，避免 sharp 的降采样导致锯齿
         }
         if (format == "bmp") {
           sharpInstance = sharpInstance.raw();
@@ -454,9 +456,7 @@ await page.addStyleTag({
           image = await sharpInstance.toBuffer();
         } else {
           // 不指定colours，避免sharp降采样导致糊
-          sharpInstance = sharpInstance.png({
-            colours: einkColors,
-          });
+          sharpInstance = sharpInstance.png();
           image = await sharpInstance.toBuffer();
         }
       }
