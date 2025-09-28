@@ -354,7 +354,13 @@ export class Browser {
         this.lastRequestedDarkMode = dark;
         defaultWait += 500;
       }
-
+await page.addStyleTag({
+  content: `
+    * {
+      font-family: "Noto Sans CJK", "Noto Sans", sans-serif !important;
+    }
+  `
+});
       // wait for the work to be done.
       // Not sure yet how to decide that?
       if (extraWait === undefined) {
