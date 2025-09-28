@@ -430,7 +430,7 @@ export class Browser {
         sharpInstance = sharpInstance
           .greyscale()
           // .blur(0.7) // 适度模糊，减少锯齿（注释掉，防止字变糊）
-          .threshold(1); // 阈值可根据实际调整
+          .threshold(128); // 阈值可根据实际调整
         if (invert) {
           sharpInstance = sharpInstance.negate({
             alpha: false,
