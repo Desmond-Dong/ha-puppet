@@ -411,13 +411,8 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        // 先转灰度再dither二值化，避免糊
-        sharpInstance = sharpInstance
-          .greyscale()
-          .png(); // 保持高质量
-        // 使用Floyd-Steinberg dithering
-        sharpInstance = sharpInstance.threshold(128, {
-          dithering: 1, // 启用dithering
+        sharpInstance = sharpInstance.threshold(180, {
+          greyscale: true,
         });
         if (invert) {
           sharpInstance = sharpInstance.negate({
@@ -429,8 +424,7 @@ await page.addStyleTag({
       // If eink processing was requested, output PNG with specified colors
       if (einkColors) {
         if (einkColors === 2) {
-          // 不再toColourspace("b-w")，避免sharp降采样导致糊
-          // sharpInstance = sharpInstance.toColourspace("b-w");
+          sharpInstance = sharpInstance.toColourspace("b-w");
         }
         if (format == "bmp") {
           sharpInstance = sharpInstance.raw();
@@ -492,7 +486,10 @@ await page.addStyleTag({
     
         const bmpEncoder = new BMPEncoder(info.width, info.height, 24);
         image = bmpEncoder.encode(rgbData);
-    }
+      } else {
+        sharpInstance = sharpInstance.png();
+        image = await sharpInstance.toBuffer();
+      }
     
 
       const end = Date.now();
