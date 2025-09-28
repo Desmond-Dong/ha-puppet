@@ -411,19 +411,23 @@ await page.addStyleTag({
 
       // Manually handle color conversion for 2 colors
       if (einkColors === 2) {
-        // 先转灰度再dither二值化，避免糊
+        const { width, height } = await sharpInstance.metadata();
+        const oversample = 4; // 超采样倍数，越大越平滑
         sharpInstance = sharpInstance
           .greyscale()
-          .png(); // 保持高质量
-        // 使用Floyd-Steinberg dithering
-        sharpInstance = sharpInstance.threshold(128, {
-          dithering: 1, // 启用dithering
-        });
+          .resize(width * oversample, height * oversample, {
+            kernel: sharp.kernel.lanczos3,
+          })
+          .threshold(128, { dithering: 1 }) // Floyd-Steinberg
+          .resize(width, height, { kernel: sharp.kernel.lanczos3 }); // 缩回原尺寸
+      
         if (invert) {
-          sharpInstance = sharpInstance.negate({
-            alpha: false,
-          });
+          sharpInstance = sharpInstance.negate({ alpha: false });
         }
+      
+        // 转为 PNG 输出
+        sharpInstance = sharpInstance.png();
+        image = await sharpInstance.toBuffer();
       }
 
       // If eink processing was requested, output PNG with specified colors
