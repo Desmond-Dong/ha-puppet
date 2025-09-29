@@ -1,4 +1,5 @@
-# Screenshot Home Assistant using Puppeteer
+[中文](README_CN.md)
+# Screenshot Home Assistant using Puppeteer 
 
 Experiment to easily create screenshots of your dashboards using Puppeteer. Allowing you to put them on e-ink screens or any other screen that can display images.
 

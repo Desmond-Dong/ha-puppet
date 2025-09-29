@@ -270,5 +270,5 @@ const serverUrl = isAddOn
   ? `http://homeassistant.local:${port}`
   : `http://localhost:${port}`;
 console.log(
-  `[${now.toLocaleTimeString()}] Visit server at ${serverUrl}/lovelace/0?viewport=1000x1000`,
+  `[${now.toLocaleTimeString()}] Visit server at ${serverUrl}/lovelace/0?viewport=800x480`,
 );
