@@ -354,11 +354,11 @@ export class Browser {
         this.lastRequestedDarkMode = dark;
         defaultWait += 500;
       }
-      // 强制字体为黑色，防止字体变透明或消失
+      // 强制字体为黑色，防止字体变透明或消失，优化字体渲染
       await page.addStyleTag({
         content: `
           * {
-            font-family: "Noto Sans CJK", "Noto Sans", sans-serif !important;
+            font-family: "Noto Sans CJK SC", "Noto Sans SC", "Noto Sans", "Microsoft YaHei", sans-serif !important;
             color: #000 !important;
             text-shadow: none !important;
             -webkit-text-stroke: 0 !important;
@@ -366,6 +366,9 @@ export class Browser {
             filter: none !important;
             background: transparent !important;
             mix-blend-mode: normal !important;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+            text-rendering: optimizeLegibility !important;
           }
           [style*="color:"], [style*="opacity:"], [style*="filter:"], [style*="background:"], [style*="mix-blend-mode:"] {
             color: #000 !important;
@@ -373,6 +376,10 @@ export class Browser {
             filter: none !important;
             background: transparent !important;
             mix-blend-mode: normal !important;
+          }
+          img, svg {
+            image-rendering: -webkit-optimize-contrast !important;
+            image-rendering: crisp-edges !important;
           }
         `
       });
@@ -424,13 +431,61 @@ export class Browser {
         sharpInstance = sharpInstance.rotate(rotate);
       }
 
-      // Manually handle color conversion for 2 colors
+      // Manually handle color conversion for 2 colors with anti-aliasing
       if (einkColors === 2) {
-        // 先灰度，后高斯模糊，再二值化，最后可选反色
-        sharpInstance = sharpInstance
+        // 使用改进的抗锯齿算法：灰度 -> 增强 -> Floyd-Steinberg抖动 -> 锐化
+        const { data, info } = await sharpInstance
           .greyscale()
-          // .blur(0.7) // 适度模糊，减少锯齿（注释掉，防止字变糊）
-          .threshold(130); // 阈值可根据实际调整
+          .modulate({
+            brightness: 1.05, // 轻微提亮
+            saturation: 1.0
+          })
+          .sharpen({
+            sigma: 0.5, // 轻微锐化
+            flat: 1.0,
+            jagged: 2.0
+          })
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+
+        // Floyd-Steinberg 抖动算法
+        const width = info.width;
+        const height = info.height;
+        const dithered = Buffer.from(data);
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            const oldPixel = dithered[idx];
+            const newPixel = oldPixel < 128 ? 0 : 255;
+            dithered[idx] = newPixel;
+
+            const error = oldPixel - newPixel;
+
+            // Floyd-Steinberg 抖动权重
+            if (x < width - 1) {
+              dithered[idx + 1] += error * 7 / 16;
+            }
+            if (y < height - 1) {
+              if (x > 0) {
+                dithered[idx + width - 1] += error * 3 / 16;
+              }
+              dithered[idx + width] += error * 5 / 16;
+              if (x < width - 1) {
+                dithered[idx + width + 1] += error * 1 / 16;
+              }
+            }
+          }
+        }
+
+        sharpInstance = sharp(dithered, {
+          raw: {
+            width,
+            height,
+            channels: 1
+          }
+        });
+
         if (invert) {
           sharpInstance = sharpInstance.negate({
             alpha: false,

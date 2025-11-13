@@ -27,3 +27,12 @@ if (!hassToken) {
   console.error("No access token found. Please configure the access token");
   process.exit(1);
 }
+
+// Disable logging of sensitive information
+console.debug = () => {};
+console.log = (...args) => {
+  const sanitized = args.map(arg =>
+    typeof arg === 'string' ? arg.replace(/access_token=[^&\s]*/gi, 'access_token=***') : arg
+  );
+  process.stdout.write(`${sanitized.join(' ')}\n`);
+};

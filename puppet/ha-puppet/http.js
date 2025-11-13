@@ -6,6 +6,10 @@ import { CannotOpenPageError } from "./error.js";
 // Maximum number of next requests to keep in memory
 const MAX_NEXT_REQUESTS = 100;
 const BROWSER_TIMEOUT = 30_000; // Timeout for browser inactivity in milliseconds
+const REQUEST_TIMEOUT = 60_000; // Request timeout in milliseconds
+const MAX_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB maximum image size
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute rate limit window
+const MAX_REQUESTS_PER_WINDOW = 60; // Max 60 requests per minute
 
 class RequestHandler {
   constructor(browser) {
@@ -91,12 +95,14 @@ class RequestHandler {
       if (isNaN(extraWait)) {
         extraWait = undefined;
       }
+      // Validate viewport parameters with reasonable limits
       const viewportParams = (requestUrl.searchParams.get("viewport") || "")
         .split("x")
         .map((n) => parseInt(n));
       if (
         viewportParams.length != 2 ||
-        !viewportParams.every((x) => !isNaN(x))
+        !viewportParams.every((x) => !isNaN(x)) ||
+        viewportParams.some((x) => x < 1 || x > 4000) // Reasonable size limits
       ) {
         response.statusCode = 400;
         response.end();
