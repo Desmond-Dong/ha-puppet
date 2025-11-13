@@ -431,54 +431,68 @@ export class Browser {
         sharpInstance = sharpInstance.rotate(rotate);
       }
 
-      // Manually handle color conversion for 2 colors with anti-aliasing
+      // Manually handle color conversion for 2 colors with multiple modes
       if (einkColors === 2) {
-        // 使用改进的抗锯齿算法：灰度 -> 增强 -> Floyd-Steinberg抖动 -> 锐化
+        // 检查是否有特定的eink模式参数
+        const einkMode = requestParams.einkMode || 'adaptive';
+
         const { data, info } = await sharpInstance
           .greyscale()
-          .modulate({
-            brightness: 1.05, // 轻微提亮
-            saturation: 1.0
-          })
-          .sharpen({
-            sigma: 0.5, // 轻微锐化
-            flat: 1.0,
-            jagged: 2.0
-          })
           .raw()
           .toBuffer({ resolveWithObject: true });
 
-        // Floyd-Steinberg 抖动算法
         const width = info.width;
         const height = info.height;
-        const dithered = Buffer.from(data);
+        const processed = Buffer.from(data);
 
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const idx = y * width + x;
-            const oldPixel = dithered[idx];
-            const newPixel = oldPixel < 128 ? 0 : 255;
-            dithered[idx] = newPixel;
+        if (einkMode === 'sharp') {
+          // 锐利模式：固定阈值，确保文字清晰
+          for (let i = 0; i < processed.length; i++) {
+            processed[i] = processed[i] > 128 ? 255 : 0;
+          }
+        } else if (einkMode === 'dither') {
+          // 抖动模式：改进的Floyd-Steinberg，修复数值溢出
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              const idx = y * width + x;
+              const oldPixel = processed[idx];
+              const newPixel = oldPixel < 128 ? 0 : 255;
+              processed[idx] = newPixel;
 
-            const error = oldPixel - newPixel;
+              const error = oldPixel - newPixel;
 
-            // Floyd-Steinberg 抖动权重
-            if (x < width - 1) {
-              dithered[idx + 1] += error * 7 / 16;
-            }
-            if (y < height - 1) {
-              if (x > 0) {
-                dithered[idx + width - 1] += error * 3 / 16;
-              }
-              dithered[idx + width] += error * 5 / 16;
+              // Floyd-Steinberg 抖动权重，确保值不溢出
               if (x < width - 1) {
-                dithered[idx + width + 1] += error * 1 / 16;
+                processed[idx + 1] = Math.max(0, Math.min(255, processed[idx + 1] + error * 7 / 16));
+              }
+              if (y < height - 1) {
+                if (x > 0) {
+                  processed[idx + width - 1] = Math.max(0, Math.min(255, processed[idx + width - 1] + error * 3 / 16));
+                }
+                processed[idx + width] = Math.max(0, Math.min(255, processed[idx + width] + error * 5 / 16));
+                if (x < width - 1) {
+                  processed[idx + width + 1] = Math.max(0, Math.min(255, processed[idx + width + 1] + error * 1 / 16));
+                }
               }
             }
           }
+        } else {
+          // 自适应模式（默认）：根据图像内容调整
+          // 计算图像的整体亮度来动态调整阈值
+          let totalBrightness = 0;
+          for (let i = 0; i < data.length; i++) {
+            totalBrightness += data[i];
+          }
+          const avgBrightness = totalBrightness / data.length;
+          // 根据平均亮度动态调整阈值
+          const threshold = avgBrightness > 180 ? 200 : (avgBrightness > 120 ? 140 : 100);
+
+          for (let i = 0; i < processed.length; i++) {
+            processed[i] = processed[i] > threshold ? 255 : 0;
+          }
         }
 
-        sharpInstance = sharp(dithered, {
+        sharpInstance = sharp(processed, {
           raw: {
             width,
             height,

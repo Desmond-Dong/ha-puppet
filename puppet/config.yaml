@@ -1,6 +1,4 @@
 name: "Puppet"
-description: "Turn dashboards into nice pictures"
-version: "1.20.0"
 description: "Turn dashboards into nice pictures with optimized e-ink rendering"
 version: "1.20.0"
 slug: "puppet"

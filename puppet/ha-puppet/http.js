@@ -135,6 +135,11 @@ class RequestHandler {
       const theme = requestUrl.searchParams.get("theme") || undefined;
       const dark = requestUrl.searchParams.has("dark");
 
+      // E-ink mode parameter for different processing algorithms
+      const einkMode = requestUrl.searchParams.get("einkMode");
+      const validEinkModes = ['sharp', 'dither', 'adaptive'];
+      const validatedEinkMode = einkMode && validEinkModes.includes(einkMode) ? einkMode : undefined;
+
       const requestParams = {
         pagePath: requestUrl.pathname,
         viewport: { width: viewportParams[0], height: viewportParams[1] },
@@ -147,6 +152,7 @@ class RequestHandler {
         lang,
         theme,
         dark,
+        einkMode: validatedEinkMode,
       };
 
       // Extract next param and schedule if necessary
